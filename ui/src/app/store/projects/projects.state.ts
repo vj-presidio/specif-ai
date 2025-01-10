@@ -23,6 +23,7 @@ import { IList } from '../../model/interfaces/IList';
 import { firstValueFrom } from 'rxjs';
 import { ToasterService } from 'src/app/services/toaster/toaster.service';
 import { BP_FILE_KEYS } from 'src/app/constants/app.constants';
+import { RequirementTypeEnum } from 'src/app/model/enum/requirement-type.enum';
 
 export class ProjectStateModel {
   projects!: IProject[];
@@ -257,7 +258,7 @@ export class ProjectsState {
   ) {
     const state = getState();
     const bpFolder = state.currentProjectFiles.find(
-      (f) => f.name === BP_FILE_KEYS.FOLDER_NAME,
+      (f) => f.name === RequirementTypeEnum.BP,
     );
 
     if (!bpFolder) {
@@ -272,7 +273,7 @@ export class ProjectsState {
 
       for (const file of bpFolder.children) {
         const content = await this.appSystemService.readFile(
-          `${state.selectedProject}/${BP_FILE_KEYS.FOLDER_NAME}/${file}`,
+          `${state.selectedProject}/${RequirementTypeEnum.BP}/${file}`,
         );
         const parsedContent = JSON.parse(content);
         const key =

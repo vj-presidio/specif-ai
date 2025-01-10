@@ -14,7 +14,6 @@ export const CHAT_TYPES = {
 };
 
 export const BP_FILE_KEYS = {
-  FOLDER_NAME: 'BP',
   BRD_KEY: 'selectedBRDs',
   PRD_KEY: 'selectedPRDs',
 };
