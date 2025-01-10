@@ -40,7 +40,8 @@ import {
   TOASTER_MESSAGES,
 } from '../../constants/app.constants';
 import { ToasterService } from 'src/app/services/toaster/toaster.service';
-import { switchMap, take } from 'rxjs';
+import { catchError, switchMap, take } from 'rxjs';
+import { RequirementTypeEnum } from 'src/app/model/enum/requirement-type.enum';
 
 @Component({
   selector: 'app-edit-solution',
@@ -319,7 +320,10 @@ ${chat.assistant}`,
   deleteFile() {
     const reqId = this.fileName.replace(/\-base.json$/, '');
 
-    if (this.folderName === 'PRD' || this.folderName === 'BRD') {
+    if (
+      this.folderName === RequirementTypeEnum.PRD ||
+      this.folderName === RequirementTypeEnum.BRD
+    ) {
       this.store
         .dispatch(new checkBPFileAssociations(this.folderName, this.fileName))
         .pipe(
@@ -328,6 +332,12 @@ ${chat.assistant}`,
               .select(ProjectsState.getBpAssociationStatus)
               .pipe(take(1)),
           ),
+          catchError(() => {
+            this.toastService.showError(
+              TOASTER_MESSAGES.ENTITY.DELETE.FAILURE(this.folderName, reqId),
+            );
+            return [];
+          }),
         )
         .subscribe((res) => {
           if (res.isAssociated) {

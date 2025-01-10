@@ -277,7 +277,9 @@ export class ProjectsState {
         );
         const parsedContent = JSON.parse(content);
         const key =
-          folderName === 'PRD' ? BP_FILE_KEYS.PRD_KEY : BP_FILE_KEYS.BRD_KEY;
+          folderName === RequirementTypeEnum.PRD
+            ? BP_FILE_KEYS.PRD_KEY
+            : BP_FILE_KEYS.BRD_KEY;
         const isReferenced = this.isFileReferenced(
           fileName,
           parsedContent,
@@ -299,12 +301,7 @@ export class ProjectsState {
         fileName,
         error,
       });
-      patchState({
-        bpAssociationStatus: {
-          isAssociated: false,
-          bpIds: [],
-        },
-      });
+      throw error;
     }
   }
 
