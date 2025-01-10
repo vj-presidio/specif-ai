@@ -13,6 +13,7 @@ import {
   ArchiveFile,
   UpdateMetadata,
   ClearBRDPRDState,
+  checkBPFileAssociations,
 } from './projects.actions';
 import { AppSystemService } from '../../services/app-system/app-system.service';
 import { NGXLogger } from 'ngx-logger';
@@ -21,6 +22,7 @@ import { Router } from '@angular/router';
 import { IList } from '../../model/interfaces/IList';
 import { firstValueFrom } from 'rxjs';
 import { ToasterService } from 'src/app/services/toaster/toaster.service';
+import { BP_FILE_KEYS } from 'src/app/constants/app.constants';
 
 export class ProjectStateModel {
   projects!: IProject[];
@@ -31,6 +33,10 @@ export class ProjectStateModel {
   metadata!: any;
   loadingProjectFiles!: boolean;
   fileExists!: boolean;
+  bpAssociationStatus!: {
+    isAssociated: boolean;
+    bpIds: string[];
+  };
 }
 
 @State<ProjectStateModel>({
@@ -44,6 +50,10 @@ export class ProjectStateModel {
     selectedFileContents: [],
     loadingProjectFiles: false,
     fileExists: false,
+    bpAssociationStatus: {
+      isAssociated: false,
+      bpIds: [],
+    },
   },
 })
 @Injectable()
@@ -94,6 +104,11 @@ export class ProjectsState {
   @Selector()
   static getMetadata(state: ProjectStateModel) {
     return state.metadata;
+  }
+
+  @Selector()
+  static getBpAssociationStatus(state: ProjectStateModel) {
+    return state.bpAssociationStatus;
   }
 
   @Action(GetProjectListAction)
@@ -233,6 +248,75 @@ export class ProjectsState {
       this.logger.error('Failed to fetch project files:', error);
       patchState({ loadingProjectFiles: false });
     }
+  }
+
+  @Action(checkBPFileAssociations)
+  async checkBPFileAssociations(
+    { getState, patchState }: StateContext<ProjectStateModel>,
+    { folderName, fileName }: checkBPFileAssociations,
+  ) {
+    const state = getState();
+    const bpFolder = state.currentProjectFiles.find(
+      (f) => f.name === BP_FILE_KEYS.FOLDER_NAME,
+    );
+
+    if (!bpFolder) {
+      patchState({
+        bpAssociationStatus: { isAssociated: false, bpIds: [] },
+      });
+      return;
+    }
+
+    try {
+      const associatedBpIds: string[] = [];
+
+      for (const file of bpFolder.children) {
+        const content = await this.appSystemService.readFile(
+          `${state.selectedProject}/${BP_FILE_KEYS.FOLDER_NAME}/${file}`,
+        );
+        const parsedContent = JSON.parse(content);
+        const key =
+          folderName === 'PRD' ? BP_FILE_KEYS.PRD_KEY : BP_FILE_KEYS.BRD_KEY;
+        const isReferenced = this.isFileReferenced(
+          fileName,
+          parsedContent,
+          key,
+        );
+
+        if (isReferenced) associatedBpIds.push(file.split('-')[0]);
+      }
+
+      patchState({
+        bpAssociationStatus: {
+          isAssociated: associatedBpIds.length > 0,
+          bpIds: associatedBpIds,
+        },
+      });
+    } catch (error) {
+      this.logger.error('Error checking file associations', {
+        folderName,
+        fileName,
+        error,
+      });
+      patchState({
+        bpAssociationStatus: {
+          isAssociated: false,
+          bpIds: [],
+        },
+      });
+    }
+  }
+
+  private isFileReferenced(
+    fileName: string,
+    parsedContent: any,
+    key: string,
+  ): boolean {
+    return (
+      parsedContent[key]?.some(
+        (entry: { fileName: string }) => entry.fileName === fileName,
+      ) || false
+    );
   }
 
   private generateFiles(
