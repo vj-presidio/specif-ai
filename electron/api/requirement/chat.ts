@@ -8,6 +8,7 @@ import { chatUpdateRequirementPrompt } from '../../prompts/requirement/chat';
 import { repairJSON } from '../../utils/custom-json-parser';
 import { OPERATIONS } from '../../helper/constants';
 import { traceBuilder } from '../../utils/trace-builder';
+import { heuristicInjectionTactic, heuristicLeakingTactic, patternInjectionTactic, patternLeakingTactic } from '@presidio-dev/hai-guardrails';
 
 export async function chatUpdateRequirement(event: IpcMainInvokeEvent, data: unknown): Promise<ChatUpdateRequirementResponse> {
   try {
@@ -19,6 +20,28 @@ export async function chatUpdateRequirement(event: IpcMainInvokeEvent, data: unk
     console.log('[chat-update-requirement] Using LLM config:', llmConfig);
     const validatedData = chatUpdateRequirementSchema.parse(data);
 
+    const handler = buildLLMHandler(
+      llmConfig.activeProvider,
+      llmConfig.providerConfigs[llmConfig.activeProvider].config
+    );
+
+    const guardsResult = await Promise.all([
+      heuristicInjectionTactic.execute(validatedData.userMessage),
+      patternInjectionTactic.execute(validatedData.userMessage),
+      heuristicLeakingTactic.execute(validatedData.userMessage),
+      patternLeakingTactic.execute(validatedData.userMessage),
+    ]);
+
+
+    if (guardsResult.some((result) => result.score >= 0.95)) {
+      console.log("[chat-update-requirement] Injection or Leaking detected");
+      return {
+        response: "Request not processed",
+        blocked: true,
+        blockedReason: "Prompt contains malicious content, that violates our security policies."
+      }
+    }
+    
     const {
       name,
       description,
@@ -58,11 +81,6 @@ export async function chatUpdateRequirement(event: IpcMainInvokeEvent, data: unk
 
     // Prepare messages for LLM
     const messages = await LLMUtils.prepareMessages(basePrompt, chatHistory);
-
-    const handler = buildLLMHandler(
-      llmConfig.activeProvider,
-      llmConfig.providerConfigs[llmConfig.activeProvider].config
-    );
 
     const traceName = traceBuilder(requirementAbbr, OPERATIONS.CHAT)
     const response = await handler.invoke(messages, null, traceName);
