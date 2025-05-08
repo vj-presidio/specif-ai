@@ -2,10 +2,10 @@ import {
   GuardrailsEngine,
   GuardrailsEngineResult,
   LLMMessage,
-  makeInjectionGuard,
-  makeLeakageGuard,
-  makePIIGuard,
-  makeSecretGuard,
+  injectionGuard,
+  leakageGuard,
+  piiGuard,
+  secretGuard,
   SelectionType,
 } from "@presidio-dev/hai-guardrails";
 import { LLMHandler } from "../services/llm/llm-handler";
@@ -19,7 +19,7 @@ export class GuardrailsShouldBlock extends Error {
 
 export const guardrailsEngine = new GuardrailsEngine({
   guards: [
-    makeInjectionGuard(
+    injectionGuard(
       {
         selection: SelectionType.Last,
       },
@@ -28,7 +28,7 @@ export const guardrailsEngine = new GuardrailsEngine({
         threshold: 0.95,
       }
     ),
-    makeLeakageGuard(
+    leakageGuard(
       {
         selection: SelectionType.Last,
       },
@@ -37,8 +37,8 @@ export const guardrailsEngine = new GuardrailsEngine({
         threshold: 0.95,
       }
     ),
-    makePIIGuard(),
-    makeSecretGuard(),
+    piiGuard(),
+    secretGuard(),
   ],
 });
 
